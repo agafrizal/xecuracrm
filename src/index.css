@@ -1,0 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  /* Theme: Dark Blue Gold (Default) */
+  --color-bg-main: #040a1b;
+  --color-bg-card: #0b1a32;
+  --color-text-base: #f8fafc;
+  --color-text-dim: #94a3b8;
+  --color-gold-base: #c5a059;
+  --color-gold-bright: #e5c17b;
+  --color-border-dim: rgba(255, 255, 255, 0.05);
+  --color-accent-blue: #0ea5e9;
+  --color-accent-red: #ef4444;
+  --gradient-main: linear-gradient(135deg, #c5a059 0%, #e5c17b 50%, #c5a059 100%);
+}
+
+.theme-white-blue {
+  --color-bg-main: #f8fafc;
+  --color-bg-card: #ffffff;
+  --color-text-base: #0f172a;
+  --color-text-dim: #64748b;
+  --color-gold-base: #0284c7;
+  --color-gold-bright: #0ea5e9;
+  --color-border-dim: rgba(15, 23, 42, 0.1);
+  --color-accent-blue: #0284c7;
+  --color-accent-red: #dc2626;
+  --gradient-main: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-brand-bg: var(--color-bg-main);
+  --color-brand-card: var(--color-bg-card);
+  --color-brand-text: var(--color-text-base);
+  --color-brand-muted: var(--color-text-dim);
+  --color-brand-gold: var(--color-gold-base);
+  --color-brand-gold-bright: var(--color-gold-bright);
+  --color-brand-red: var(--color-accent-red);
+  --color-brand-blue: var(--color-accent-blue);
+  --color-gold-gradient: var(--gradient-main);
+}
+
+html, body {
+  background-color: var(--color-bg-main);
+  color: var(--color-text-base);
+  margin: 0;
+  padding: 0;
+}
+
+@layer utilities {
+  .bg-gold-gradient {
+    background: var(--gradient-main);
+  }
+  .text-gold {
+    color: var(--color-gold-base);
+  }
+  .border-white\/5 {
+    border-color: var(--color-border-dim);
+  }
+  .border-white\/10 {
+    border-color: var(--color-border-dim);
+  }
+  .bg-white\/5 {
+    background-color: var(--color-border-dim);
+  }
+  .bg-white\/10 {
+    background-color: var(--color-border-dim);
+  }
+  /* Ensure existing shadcn or custom helpers use variables too if needed */
+}

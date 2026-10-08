@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.uid == "7e1uoqs6OzNyMP04kDkW0FgOaLC3" ||
+        request.auth.token.email.lower() == "rendoe@sqshield.com" ||
+        request.auth.token.email.lower() == "rendoe@xecura.id" ||
+        firestore.get(/databases/ai-studio-0ce12003-7f2f-4b91-bc72-9d23e2fc41f0/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    match /backups/{uid}/{allPaths=**} {
+      allow read, write: if isAuthenticated() && (request.auth.uid == uid || isAdmin());
+    }
+
+    match /{folder}/{uid}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == uid && (folder == 'bast' || folder == 'poDocs' || folder == 'invoices' || folder == 'backups' || folder == 'proposals');
+    }
+  }
+}

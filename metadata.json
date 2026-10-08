@@ -1,0 +1,5 @@
+{
+  "name": "Xecura CRM",
+  "description": "A powerful, secure CRM for managing leads, deals, and tasks with real-time updates and domain-restricted Google authentication.",
+  "requestFramePermissions": []
+}

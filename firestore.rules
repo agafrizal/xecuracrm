@@ -1,0 +1,489 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required, immutable)
+    //   - email: string (required, email format)
+    //   - displayName: string (required, max 100 chars)
+    //   - photoURL: string (optional, URL format)
+    //   - role: string (required, 'admin' or 'sales')
+    //   - createdAt: timestamp (required, immutable)
+    //
+    // Collection: companies
+    // Document ID: auto-generated
+    // Fields:
+    //   - name: string (required, max 100 chars)
+    //   - industry: string (optional, max 100 chars)
+    //   - website: string (optional, URL format)
+    //   - address: string (optional, max 200 chars)
+    //   - ownerId: string (required, immutable)
+    //   - createdAt: timestamp (required, immutable)
+    //   - updatedAt: timestamp (required)
+    //
+    // Collection: contacts
+    // Document ID: auto-generated
+    // Fields:
+    //   - name: string (required, max 100 chars)
+    //   - title: string (optional, max 100 chars)
+    //   - email: string (optional, email format)
+    //   - phone: string (optional, max 20 chars)
+    //   - companyId: string (optional)
+    //   - tags: list of strings (optional, max 20 items)
+    //   - ownerId: string (required, immutable)
+    //   - createdAt: timestamp (required, immutable)
+    //   - updatedAt: timestamp (required)
+    //
+    // Collection: deals
+    // Document ID: auto-generated
+    // Fields:
+    //   - title: string (required, max 200 chars)
+    //   - value: number (required, positive)
+    //   - stage: string (required, enum: L0-closed-lost, L1-prospecting, L2-proposal, L3-show-interest, L4-negotiation, L5-closed-won)
+    //   - stageUpdatedAt: timestamp (required)
+    //   - companyId: string (optional)
+    //   - contactId: string (optional)
+    //   - ownerId: string (required, immutable)
+    //   - expectedCloseDate: string (optional, date format)
+    //   - expectedCloseQuarter: string (optional, e.g., Q1 2026)
+    //   - potentialGrossProfit: number (optional)
+    //   - opportunityType: string (optional, enum: Renewal, New)
+    //   - productCategory: string (optional, max 100 chars)
+    //   - productBrand: string (optional, max 100 chars)
+    //   - productType: string (optional, max 200 chars)
+    //   - productSolutions: list of maps (optional, max 20 items)
+    //   - createdAt: timestamp (required, immutable)
+    //   - updatedAt: timestamp (required)
+    //
+    // Collection: tasks
+    // Document ID: auto-generated
+    // Fields:
+    //   - title: string (required, max 200 chars)
+    //   - description: string (optional, max 1000 chars)
+    //   - dueDate: timestamp (optional)
+    //   - status: string (required, enum: pending, completed)
+    //   - ownerId: string (required, immutable)
+    //   - relatedTo: map (optional, {type: string, id: string})
+    //   - createdAt: timestamp (required, immutable)
+    //
+    // Collection: logs
+    // Document ID: auto-generated
+    // Fields:
+    //   - event: string (required)
+    //   - userEmail: string (required)
+    //   - userId: string (required)
+    //   - details: string (optional)
+    //   - createdAt: timestamp (required, immutable)
+    //
+    // Collection: interactions
+    // Document ID: auto-generated
+    // Fields:
+    //   - kind: string (required, enum: Email, Call, Meeting, Notes)
+    //   - date: timestamp (required)
+    //   - companyId: string (required)
+    //   - contactId: string (required)
+    //   - subject: string (required, max 200 chars)
+    //   - description: string (optional, max 2000 chars)
+    //   - ownerId: string (required, immutable)
+    //   - createdAt: timestamp (required, immutable)
+    //   - updatedAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null && 
+        request.auth.token.email != null &&
+        (request.auth.token.email.lower() == "rendoe@sqshield.com" ||
+         request.auth.token.email.matches(".*@xecura\\.id$") || 
+         request.auth.token.email.matches(".*@sqshield\\.com$"));
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && resource != null && 'ownerId' in resource.data && request.auth.uid == resource.data.ownerId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.uid == "7e1uoqs6OzNyMP04kDkW0FgOaLC3" ||
+         request.auth.token.email.lower() == "rendoe@sqshield.com" ||
+         request.auth.token.email.lower() == "rendoe@xecura.id" ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    }
+
+    function isManager() {
+      return isAuthenticated() &&
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'sales') == 'manager');
+    }
+
+    function isSuperUser() {
+      return isAuthenticated() &&
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'sales') == 'super_user' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'sales') == 'project_manager' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'sales') == 'engineer'));
+    }
+
+    function isFinance() {
+      return isAuthenticated() &&
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'sales') == 'finance');
+    }
+
+    function isProcurement() {
+      return isAuthenticated() &&
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'sales') == 'procurement');
+    }
+
+    function isProjectManager() {
+      return isAuthenticated() &&
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'sales') == 'project_manager');
+    }
+
+    function isEngineer() {
+      return isAuthenticated() &&
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'sales') == 'engineer');
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url == "" || url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isValidEmail(email) {
+      return email is string && (email == "" || email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"));
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data, userId) {
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'notificationSettings']) &&
+             data.uid == userId &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 500)) &&
+             data.role in ['admin', 'manager', 'sales', 'super_user', 'finance', 'procurement', 'project_manager', 'engineer'] &&
+             data.createdAt is timestamp &&
+             (!('notificationSettings' in data) || (
+                data.notificationSettings is map &&
+                data.notificationSettings.keys().hasOnly(['emailNotifications', 'taskReminders', 'newLeadAlerts']) &&
+                data.notificationSettings.emailNotifications is bool &&
+                data.notificationSettings.taskReminders is bool &&
+                data.notificationSettings.newLeadAlerts is bool
+             ));
+    }
+
+    function isValidCompany(data) {
+      return hasOnlyAllowedFields(['id', 'name', 'category', 'groupCompanyIds', 'industry', 'website', 'address', 'ownerId', 'createdAt', 'updatedAt']) &&
+             (!('id' in data) || data.id is string) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             (!('category' in data) || data.category == null || data.category in ['Single', 'Group/Holding']) &&
+             (!('groupCompanyIds' in data) || data.groupCompanyIds == null || (data.groupCompanyIds is list && data.groupCompanyIds.size() <= 100)) &&
+             (!('industry' in data) || data.industry == null || (data.industry is string && data.industry.size() <= 100)) &&
+             (!('website' in data) || data.website == null || isValidUrl(data.website)) &&
+             (!('address' in data) || data.address == null || (data.address is string && data.address.size() <= 500)) &&
+             data.ownerId is string &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidContact(data) {
+      return hasOnlyAllowedFields(['id', 'name', 'title', 'email', 'phone', 'companyId', 'tags', 'ownerId', 'createdAt', 'updatedAt']) &&
+             (!('id' in data) || data.id is string) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             (!('title' in data) || data.title == null || (data.title is string && data.title.size() <= 100)) &&
+             (!('email' in data) || data.email == null || isValidEmail(data.email)) &&
+             (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() <= 20)) &&
+             (!('companyId' in data) || data.companyId == null || data.companyId is string) &&
+             (!('tags' in data) || data.tags == null || (data.tags is list && data.tags.size() <= 20)) &&
+             data.ownerId is string &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidDeal(data) {
+      return hasOnlyAllowedFields(['id', 'title', 'value', 'stage', 'stageUpdatedAt', 'companyId', 'contactId', 'ownerId', 'expectedCloseDate', 'expectedCloseQuarter', 'potentialGrossProfit', 'opportunityType', 'productCategory', 'productBrand', 'productType', 'productSolutions', 'poDocumentUrl', 'poDocumentName', 'proposalType', 'technicalProposalUrl', 'technicalProposalName', 'commercialProposalUrl', 'commercialProposalName', 'proposalStatus', 'proposalSubmittedAt', 'proposalApprovedAt', 'proposalApprovedBy', 'proposalApproverName', 'proposalRejectionReason', 'proposalSentToCustomer', 'proposalSentAt', 'createdAt', 'updatedAt']) &&
+             (!('id' in data) || data.id is string) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.value is number && data.value >= 0 &&
+             data.stage in ['L0-closed-lost', 'L1-prospecting', 'L2-proposal', 'L3-show-interest', 'L4-negotiation', 'L5-closed-won'] &&
+             (!('stageUpdatedAt' in data) || data.stageUpdatedAt is timestamp) &&
+             (!('companyId' in data) || data.companyId == null || data.companyId is string) &&
+             (!('contactId' in data) || data.contactId == null || data.contactId is string) &&
+             data.ownerId is string &&
+             (!('expectedCloseDate' in data) || data.expectedCloseDate == null || data.expectedCloseDate is string) &&
+             (!('expectedCloseQuarter' in data) || data.expectedCloseQuarter == null || data.expectedCloseQuarter is string) &&
+             (!('potentialGrossProfit' in data) || data.potentialGrossProfit == null || (data.potentialGrossProfit is number && data.potentialGrossProfit >= 0 && data.potentialGrossProfit <= 100)) &&
+             (!('opportunityType' in data) || data.opportunityType == null || data.opportunityType in ['Renewal', 'New']) &&
+             (!('productCategory' in data) || data.productCategory == null || (data.productCategory is string && data.productCategory.size() <= 100)) &&
+             (!('productBrand' in data) || data.productBrand == null || (data.productBrand is string && data.productBrand.size() <= 100)) &&
+             (!('productType' in data) || data.productType == null || (data.productType is string && data.productType.size() <= 200)) &&
+             (!('productSolutions' in data) || data.productSolutions == null || (data.productSolutions is list && data.productSolutions.size() <= 20)) &&
+             (!('poDocumentUrl' in data) || data.poDocumentUrl == null || data.poDocumentUrl == '' || isValidUrl(data.poDocumentUrl)) &&
+             (!('poDocumentName' in data) || data.poDocumentName == null || data.poDocumentName == '' || data.poDocumentName is string) &&
+             (!('proposalType' in data) || data.proposalType == null || data.proposalType in ['commercial_only', 'commercial_and_technical']) &&
+             (!('technicalProposalUrl' in data) || data.technicalProposalUrl == null || data.technicalProposalUrl == '' || isValidUrl(data.technicalProposalUrl)) &&
+             (!('technicalProposalName' in data) || data.technicalProposalName == null || data.technicalProposalName == '' || data.technicalProposalName is string) &&
+             (!('commercialProposalUrl' in data) || data.commercialProposalUrl == null || data.commercialProposalUrl == '' || isValidUrl(data.commercialProposalUrl)) &&
+             (!('commercialProposalName' in data) || data.commercialProposalName == null || data.commercialProposalName == '' || data.commercialProposalName is string) &&
+             (!('proposalStatus' in data) || data.proposalStatus == null || data.proposalStatus in ['draft', 'pending_approval', 'approved', 'rejected']) &&
+             (!('proposalSubmittedAt' in data) || data.proposalSubmittedAt == null || data.proposalSubmittedAt is timestamp) &&
+             (!('proposalApprovedAt' in data) || data.proposalApprovedAt == null || data.proposalApprovedAt is timestamp) &&
+             (!('proposalApprovedBy' in data) || data.proposalApprovedBy == null || data.proposalApprovedBy is string) &&
+             (!('proposalApproverName' in data) || data.proposalApproverName == null || data.proposalApproverName is string) &&
+             (!('proposalRejectionReason' in data) || data.proposalRejectionReason == null || (data.proposalRejectionReason is string && data.proposalRejectionReason.size() <= 1000)) &&
+             (!('proposalSentToCustomer' in data) || data.proposalSentToCustomer == null || data.proposalSentToCustomer is bool) &&
+             (!('proposalSentAt' in data) || data.proposalSentAt == null || data.proposalSentAt is timestamp) &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidTask(data) {
+      return hasOnlyAllowedFields(['id', 'title', 'description', 'dueDate', 'status', 'ownerId', 'relatedTo', 'createdAt', 'updatedAt']) &&
+             (!('id' in data) || data.id is string) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             (!('description' in data) || data.description == null || (data.description is string && data.description.size() <= 1000)) &&
+             (!('dueDate' in data) || data.dueDate == null || data.dueDate is timestamp) &&
+             data.status in ['pending', 'completed'] &&
+             data.ownerId is string &&
+             (!('relatedTo' in data) || data.relatedTo == null || (data.relatedTo is map && data.relatedTo.keys().hasAll(['type', 'id']))) &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidLog(data) {
+      return hasOnlyAllowedFields(['event', 'userEmail', 'userId', 'details', 'createdAt']) &&
+             data.event is string && data.event.size() > 0 &&
+             data.userEmail == request.auth.token.email &&
+             data.userId == request.auth.uid &&
+             (!('details' in data) || data.details == null || data.details is string) &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidInteraction(data) {
+      return hasOnlyAllowedFields(['id', 'kind', 'date', 'companyId', 'contactId', 'dealId', 'subject', 'description', 'highlights', 'findings', 'ownerId', 'createdAt', 'updatedAt']) &&
+             (!('id' in data) || data.id is string) &&
+             data.kind in ['Email', 'Call', 'Meeting', 'Notes'] &&
+             data.date is timestamp &&
+             data.companyId is string &&
+             (!('contactId' in data) || data.contactId == null || data.contactId is string) &&
+             (!('dealId' in data) || data.dealId == null || data.dealId is string) &&
+             data.subject is string && data.subject.size() > 0 && data.subject.size() <= 200 &&
+             (!('description' in data) || data.description == null || (data.description is string && data.description.size() <= 2000)) &&
+             (!('highlights' in data) || data.highlights == null || (data.highlights is string && data.highlights.size() <= 1000)) &&
+             (!('findings' in data) || data.findings == null || (data.findings is string && data.findings.size() <= 1000)) &&
+             data.ownerId is string &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidPurchaseOrder(data) {
+      return hasOnlyAllowedFields(['id', 'poNumber', 'title', 'companyId', 'contactId', 'dealId', 'amount', 'status', 'issueDate', 'startDate', 'endDate', 'ownerId', 'bastUrl', 'bastName', 'poUrl', 'poName', 'msaUrl', 'msaName', 'createdAt', 'updatedAt']) &&
+             (!('id' in data) || data.id is string) &&
+             data.poNumber is string && data.poNumber.size() > 0 && data.poNumber.size() <= 50 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.companyId is string &&
+             (!('contactId' in data) || data.contactId == null || data.contactId is string) &&
+             (!('dealId' in data) || data.dealId == null || data.dealId is string) &&
+             data.amount is number && data.amount >= 0 &&
+             data.status in ['draft', 'approved'] &&
+             data.issueDate is timestamp &&
+             (!('startDate' in data) || data.startDate == null || data.startDate is timestamp) &&
+             (!('endDate' in data) || data.endDate == null || data.endDate is timestamp) &&
+             data.ownerId is string &&
+             (!('bastUrl' in data) || data.bastUrl == null || (data.bastUrl is string && data.bastUrl.size() <= 1000)) &&
+             (!('bastName' in data) || data.bastName == null || (data.bastName is string && data.bastName.size() <= 255)) &&
+             (!('poUrl' in data) || data.poUrl == null || (data.poUrl is string && data.poUrl.size() <= 1000)) &&
+             (!('poName' in data) || data.poName == null || (data.poName is string && data.poName.size() <= 255)) &&
+             (!('msaUrl' in data) || data.msaUrl == null || (data.msaUrl is string && data.msaUrl.size() <= 1000)) &&
+             (!('msaName' in data) || data.msaName == null || (data.msaName is string && data.msaName.size() <= 255)) &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidInvoiceItem(item) {
+      return item is map &&
+             item.keys().hasOnly(['id', 'description', 'qty', 'unitPrice', 'amount']) &&
+             item.id is string &&
+             item.description is string &&
+             item.qty is number &&
+             item.unitPrice is number &&
+             item.amount is number;
+    }
+
+    function isValidInvoice(data) {
+      return hasOnlyAllowedFields(['id', 'invoiceNumber', 'title', 'companyId', 'contactId', 'dealId', 'poId', 'amount', 'items', 'status', 'issueDate', 'dueDate', 'ownerId', 'invoiceUrl', 'invoiceName', 'createdAt', 'updatedAt']) &&
+             (!('id' in data) || data.id is string) &&
+             data.invoiceNumber is string && data.invoiceNumber.size() > 0 && data.invoiceNumber.size() <= 50 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.companyId is string &&
+             (!('contactId' in data) || data.contactId == null || data.contactId is string) &&
+             (!('dealId' in data) || data.dealId == null || data.dealId is string) &&
+             (!('poId' in data) || data.poId == null || data.poId is string) &&
+             data.amount is number && data.amount >= 0 &&
+             (!('items' in data) || data.items == null || (data.items is list && data.items.size() <= 100 && (data.items.size() == 0 || isValidInvoiceItem(data.items[0])))) &&
+             data.status in ['draft', 'sent', 'paid', 'overdue', 'cancelled'] &&
+             data.issueDate is timestamp &&
+             data.dueDate is timestamp &&
+             data.ownerId is string &&
+             (!('invoiceUrl' in data) || data.invoiceUrl == null || (data.invoiceUrl is string && data.invoiceUrl.size() <= 1000)) &&
+             (!('invoiceName' in data) || data.invoiceName == null || (data.invoiceName is string && data.invoiceName.size() <= 255)) &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidNotification(data) {
+      return hasOnlyAllowedFields(['id', 'userId', 'title', 'message', 'type', 'read', 'relatedId', 'relatedType', 'createdAt']) &&
+             (!('id' in data) || data.id is string) &&
+             data.userId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.message is string && data.message.size() > 0 && data.message.size() <= 1000 &&
+             data.type in ['info', 'warning', 'error', 'success'] &&
+             data.read is bool &&
+             (!('relatedId' in data) || data.relatedId == null || data.relatedId is string) &&
+             (!('relatedType' in data) || data.relatedType == null || data.relatedType in ['invoice', 'deal', 'task']) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isAuthenticated() && (isOwner(uid) || isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isProjectManager());
+      allow create: if isAuthenticated() && isOwner(uid) && isValidUser(request.resource.data, uid) && request.resource.data.email == request.auth.token.email && (request.resource.data.role == 'sales' || isAdmin());
+      allow update: if isAuthenticated() && (
+        (isOwner(uid) && isValidUser(request.resource.data, uid) && request.resource.data.email == request.auth.token.email && (request.resource.data.role == resource.data.role || isAdmin())) ||
+        (isAdmin() && isValidUser(request.resource.data, uid) && request.resource.data.email == resource.data.email && (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt))
+      );
+      allow delete: if isAuthenticated() && isAdmin() && request.auth.uid != uid;
+    }
+
+    match /companies/{companyId} {
+      allow read: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && resource.data.ownerId == request.auth.uid);
+      allow create: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && request.resource.data.ownerId == request.auth.uid)) && isValidCompany(request.resource.data);
+      allow update: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && resource.data.ownerId == request.auth.uid)) && 
+                    isValidCompany(request.resource.data) && 
+                    (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+      allow delete: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && resource.data.ownerId == request.auth.uid);
+    }
+
+    match /contacts/{contactId} {
+      allow read: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && isDocOwner());
+      allow create: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && request.resource.data.ownerId == request.auth.uid)) && isValidContact(request.resource.data);
+      allow update: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isDocOwner()) && 
+                    isValidContact(request.resource.data) && 
+                    (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+      allow delete: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isDocOwner();
+    }
+
+    match /deals/{dealId} {
+      allow read: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && isDocOwner());
+      allow create: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && request.resource.data.ownerId == request.auth.uid)) && isValidDeal(request.resource.data);
+      allow update: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isDocOwner()) && 
+                    isValidDeal(request.resource.data) && 
+                    (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt) &&
+                    (request.resource.data.get('proposalStatus', null) != 'approved' || resource.data.get('proposalStatus', null) == 'approved' || isAdmin()) &&
+                    (!('proposalApprovedBy' in request.resource.data) || request.resource.data.proposalApprovedBy == resource.data.get('proposalApprovedBy', null) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && isDocOwner());
+      allow create: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && request.resource.data.ownerId == request.auth.uid)) && isValidTask(request.resource.data);
+      allow update: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isDocOwner()) && 
+                    isValidTask(request.resource.data) && 
+                    (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+      allow delete: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isDocOwner();
+    }
+
+    match /logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && isValidLog(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /interactions/{interactionId} {
+      allow read: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && isDocOwner());
+      allow create: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && request.resource.data.ownerId == request.auth.uid)) && isValidInteraction(request.resource.data);
+      allow update: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isDocOwner()) && 
+                    isValidInteraction(request.resource.data) && 
+                    (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+      allow delete: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isDocOwner();
+    }
+
+    match /purchaseOrders/{poId} {
+      allow read: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && isDocOwner());
+      allow create: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && request.resource.data.ownerId == request.auth.uid)) && isValidPurchaseOrder(request.resource.data);
+      allow update: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isDocOwner()) && 
+                    isValidPurchaseOrder(request.resource.data) && 
+                    (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+      allow delete: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isDocOwner();
+    }
+
+    match /invoices/{invoiceId} {
+      allow read: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && isDocOwner());
+      allow create: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || (isAuthenticated() && request.resource.data.ownerId == request.auth.uid)) && 
+                    isValidInvoice(request.resource.data) &&
+                    (request.resource.data.status == 'draft' || isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement());
+      allow update: if (isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isDocOwner()) && 
+                    isValidInvoice(request.resource.data) && 
+                    (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt) &&
+                    (request.resource.data.status == resource.data.status || isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement());
+      allow delete: if isAdmin() || isManager() || isSuperUser() || isFinance() || isProcurement() || isDocOwner();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
+      allow create: if isAuthenticated(); // Allow system or other users to create notifications
+      allow update: if isAuthenticated() && (isAdmin() || (resource.data.userId == request.auth.uid && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])));
+      allow delete: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+    }
+
+    match /implementationPlans/{planId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (isAdmin() || isProjectManager() || isSuperUser() || isManager() || isDocOwner());
+      allow delete: if isAuthenticated() && (isAdmin() || isProjectManager() || isSuperUser());
+    }
+
+    match /pocs/{pocId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated() && (isAdmin() || isSuperUser() || isManager() || isDocOwner());
+    }
+
+    match /backups/{backupId} {
+      allow read, create, delete: if isAdmin();
+      allow update: if false;
+    }
+    
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

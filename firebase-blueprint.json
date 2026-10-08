@@ -1,0 +1,290 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information about a CRM user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique ID of the user." },
+        "email": { "type": "string", "format": "email", "description": "The email address of the user." },
+        "displayName": { "type": "string", "description": "The display name of the user." },
+        "photoURL": { "type": "string", "format": "uri", "description": "The URL of the user's profile photo." },
+        "role": { "type": "string", "enum": ["admin", "manager", "sales", "super_user", "finance", "procurement", "project_manager", "engineer"], "description": "The role of the user." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user profile was created." },
+        "notificationSettings": {
+          "type": "object",
+          "properties": {
+            "emailNotifications": { "type": "boolean" },
+            "taskReminders": { "type": "boolean" },
+            "newLeadAlerts": { "type": "boolean" }
+          }
+        }
+      },
+      "required": ["uid", "email", "displayName", "role", "createdAt"]
+    },
+    "Company": {
+      "title": "Company",
+      "description": "A business entity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique ID of the company." },
+        "name": { "type": "string", "description": "The name of the company." },
+        "category": { "type": "string", "enum": ["Single", "Group/Holding"], "description": "Category of company: Single or Group/Holding." },
+        "groupCompanyIds": { "type": "array", "items": { "type": "string" }, "description": "List of company IDs belonging to this Group/Holding." },
+        "industry": { "type": "string", "description": "The industry the company operates in." },
+        "website": { "type": "string", "format": "uri", "description": "The website of the company." },
+        "address": { "type": "string", "description": "The physical address of the company." },
+        "ownerId": { "type": "string", "description": "The UID of the user who owns this company record." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the company record was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the company record was last updated." }
+      },
+      "required": ["name", "ownerId", "createdAt", "updatedAt"]
+    },
+    "Contact": {
+      "title": "Contact",
+      "description": "A potential customer or contact person.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique ID of the contact." },
+        "name": { "type": "string", "description": "The name of the contact." },
+        "title": { "type": "string", "description": "The job title of the contact." },
+        "email": { "type": "string", "format": "email", "description": "The email of the contact." },
+        "phone": { "type": "string", "description": "The phone number of the contact." },
+        "companyId": { "type": "string", "description": "The ID of the company associated with this contact." },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Tags assigned to this contact (e.g. Client, Potential Client, Internal)." },
+        "ownerId": { "type": "string", "description": "The UID of the user who owns this contact." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the contact was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the contact was last updated." }
+      },
+      "required": ["name", "ownerId", "createdAt", "updatedAt"]
+    },
+    "Deal": {
+      "title": "Deal",
+      "description": "A sales opportunity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique ID of the deal." },
+        "title": { "type": "string", "description": "The title of the deal." },
+        "value": { "type": "number", "description": "The monetary value of the deal." },
+        "stage": { "type": "string", "enum": ["L0-closed-lost", "L1-prospecting", "L2-proposal", "L3-show-interest", "L4-negotiation", "L5-closed-won"], "description": "The current stage of the deal." },
+        "companyId": { "type": "string", "description": "The ID of the company associated with this deal." },
+        "contactId": { "type": "string", "description": "The ID of the contact associated with this deal." },
+        "ownerId": { "type": "string", "description": "The UID of the user who owns this deal." },
+        "expectedCloseDate": { "type": "string", "format": "date", "description": "The expected date for closing the deal." },
+        "potentialGrossProfit": { "type": "number", "description": "The potential gross profit percentage of the deal (0-100)." },
+        "opportunityType": { "type": "string", "enum": ["Renewal", "New"], "description": "The type of opportunity." },
+        "productCategory": { "type": "string", "description": "Product & Solution category (e.g. SOC as A Service, Health Check, Implementation)." },
+        "productBrand": { "type": "string", "description": "Product & Solution brand or service vendor." },
+        "productType": { "type": "string", "description": "Product & Solution specific product types (e.g. EDR, NDR, XDR, SecOps)." },
+        "productSolutions": { "type": "array", "items": { "type": "object" }, "description": "List of selected product and solution items." },
+        "poDocumentUrl": { "type": "string", "format": "uri", "description": "URL to the PO document PDF." },
+        "poDocumentName": { "type": "string", "description": "Name of the uploaded PO document." },
+        "proposalType": { "type": "string", "enum": ["commercial_only", "commercial_and_technical"], "description": "Type of required proposal: Commercial only or Commercial & Technical." },
+        "technicalProposalUrl": { "type": "string", "format": "uri", "description": "URL to the Technical Proposal PDF document." },
+        "technicalProposalName": { "type": "string", "description": "Filename of the Technical Proposal." },
+        "commercialProposalUrl": { "type": "string", "format": "uri", "description": "URL to the Commercial Proposal PDF document." },
+        "commercialProposalName": { "type": "string", "description": "Filename of the Commercial Proposal." },
+        "proposalStatus": { "type": "string", "enum": ["draft", "pending_approval", "approved", "rejected"], "description": "Current status of the proposal." },
+        "proposalSubmittedAt": { "type": "string", "format": "date-time", "description": "When proposal was submitted for approval." },
+        "proposalApprovedAt": { "type": "string", "format": "date-time", "description": "When proposal was approved by Admin." },
+        "proposalApprovedBy": { "type": "string", "description": "UID of the Admin who approved the proposal." },
+        "proposalApproverName": { "type": "string", "description": "Name of the Admin who approved the proposal." },
+        "proposalRejectionReason": { "type": "string", "description": "Reason given if proposal was rejected by Admin." },
+        "proposalSentToCustomer": { "type": "boolean", "description": "Whether the approved proposal has been sent to customer." },
+        "proposalSentAt": { "type": "string", "format": "date-time", "description": "When proposal was sent to customer." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the deal was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the deal was last updated." }
+      },
+      "required": ["title", "value", "stage", "ownerId", "createdAt", "updatedAt"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "An activity to be completed.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique ID of the task." },
+        "title": { "type": "string", "description": "The title of the task." },
+        "description": { "type": "string", "description": "The detailed description of the task." },
+        "dueDate": { "type": "string", "format": "date-time", "description": "The due date for the task." },
+        "status": { "type": "string", "enum": ["pending", "completed"], "description": "The current status of the task." },
+        "ownerId": { "type": "string", "description": "The UID of the user who owns this task." },
+        "relatedTo": { "type": "object", "properties": { "type": { "type": "string", "enum": ["contact", "deal"] }, "id": { "type": "string" } } },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the task was created." }
+      },
+      "required": ["title", "status", "ownerId", "createdAt"]
+    },
+    "Log": {
+      "title": "System Log",
+      "description": "A record of a system event.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique ID of the log." },
+        "event": { "type": "string", "description": "The type of event." },
+        "userEmail": { "type": "string", "description": "The email of the user who performed the action." },
+        "userId": { "type": "string", "description": "The UID of the user who performed the action." },
+        "details": { "type": "string", "description": "Additional details about the event." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the event occurred." }
+      },
+      "required": ["event", "userEmail", "userId", "createdAt"]
+    },
+    "Interaction": {
+      "title": "Interaction",
+      "description": "A record of a customer interaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique ID of the interaction." },
+        "kind": { "type": "string", "enum": ["Email", "Call", "Meeting", "Notes"], "description": "The type of interaction." },
+        "date": { "type": "string", "format": "date-time", "description": "When the interaction occurred." },
+        "companyId": { "type": "string", "description": "The ID of the associated company." },
+        "contactId": { "type": "string", "description": "The ID of the associated contact." },
+        "subject": { "type": "string", "description": "The subject of the interaction." },
+        "description": { "type": "string", "description": "Detailed notes about the interaction." },
+        "ownerId": { "type": "string", "description": "The UID of the user who owns this record." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the record was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the record was last updated." }
+      },
+      "required": ["kind", "date", "companyId", "contactId", "subject", "ownerId", "createdAt", "updatedAt"]
+    },
+    "PurchaseOrder": {
+      "title": "Purchase Order",
+      "description": "A document issued by a buyer to a seller.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "poNumber": { "type": "string" },
+        "title": { "type": "string" },
+        "companyId": { "type": "string" },
+        "contactId": { "type": "string" },
+        "dealId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "approved"] },
+        "issueDate": { "type": "string", "format": "date-time" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "ownerId": { "type": "string" },
+        "poUrl": { "type": "string", "format": "uri", "description": "URL to the uploaded PO PDF document." },
+        "poName": { "type": "string", "description": "Original filename of the PO document." },
+        "bastUrl": { "type": "string", "format": "uri", "description": "URL to the uploaded BAST PDF document." },
+        "bastName": { "type": "string", "description": "Original filename of the BAST document." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["poNumber", "title", "companyId", "amount", "status", "issueDate", "ownerId", "createdAt", "updatedAt"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "A document issued by a seller to a buyer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "title": { "type": "string" },
+        "companyId": { "type": "string" },
+        "contactId": { "type": "string" },
+        "dealId": { "type": "string" },
+        "poId": { "type": "string" },
+        "amount": { "type": "number" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "description": { "type": "string" },
+              "qty": { "type": "number" },
+              "unitPrice": { "type": "number" },
+              "amount": { "type": "number" }
+            }
+          }
+        },
+        "status": { "type": "string", "enum": ["draft", "sent", "paid", "overdue", "cancelled"] },
+        "issueDate": { "type": "string", "format": "date-time" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "ownerId": { "type": "string" },
+        "invoiceUrl": { "type": "string", "format": "uri", "description": "URL to the uploaded invoice PDF document." },
+        "invoiceName": { "type": "string", "description": "Original filename of the invoice document." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["invoiceNumber", "title", "companyId", "amount", "status", "issueDate", "dueDate", "ownerId", "createdAt", "updatedAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A notification for a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "warning", "error", "success"] },
+        "read": { "type": "boolean" },
+        "relatedId": { "type": "string" },
+        "relatedType": { "type": "string", "enum": ["invoice", "deal", "task"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    },
+    "ImplementationPlan": {
+      "title": "Implementation Plan",
+      "description": "An implementation project plan for closed-won L5 deals.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "dealId": { "type": "string" },
+        "poId": { "type": "string" },
+        "companyId": { "type": "string" },
+        "contactId": { "type": "string" },
+        "title": { "type": "string" },
+        "value": { "type": "number" },
+        "status": { "type": "string", "enum": ["Draft", "Scheduled", "In Progress", "On Hold", "Completed", "Cancelled"] },
+        "durationWeeks": { "type": "number" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "targetEndDate": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "assignedPmId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["dealId", "title", "status", "ownerId", "updatedAt"]
+    },
+    "PocRecord": {
+      "title": "POC Record",
+      "description": "Proof of Concept requirements and status for L3+ deals.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "dealId": { "type": "string" },
+        "companyId": { "type": "string" },
+        "contactId": { "type": "string" },
+        "title": { "type": "string" },
+        "value": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pending", "Required", "Not Required"] },
+        "durationWeeks": { "type": "number" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "targetEndDate": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["dealId", "title", "status", "ownerId", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profiles." },
+    "/companies/{companyId}": { "schema": "Company", "description": "Companies managed in the CRM." },
+    "/contacts/{contactId}": { "schema": "Contact", "description": "Contacts managed in the CRM." },
+    "/deals/{dealId}": { "schema": "Deal", "description": "Deals managed in the CRM." },
+    "/tasks/{taskId}": { "schema": "Task", "description": "Tasks managed in the CRM." },
+    "/logs/{logId}": { "schema": "Log", "description": "System event logs." },
+    "/interactions/{interactionId}": { "schema": "Interaction", "description": "Customer interactions managed in the CRM." },
+    "/purchaseOrders/{poId}": { "schema": "PurchaseOrder", "description": "Purchase orders managed in the CRM." },
+    "/invoices/{invoiceId}": { "schema": "Invoice", "description": "Invoices managed in the CRM." },
+    "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications." },
+    "/implementationPlans/{planId}": { "schema": "ImplementationPlan", "description": "Implementation project plans." },
+    "/pocs/{pocId}": { "schema": "PocRecord", "description": "POC records." }
+  }
+}
