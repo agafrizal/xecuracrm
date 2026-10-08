@@ -1,10 +1,10 @@
 {
-  "projectId": "gen-lang-client-0705312186",
-  "appId": "1:707929784634:web:ec0bec7bd9502562ec1003",
-  "apiKey": "AIzaSyCvKaN3V5MFl9Vqv5ZwWFn0ph2If6FE3fs",
-  "authDomain": "gen-lang-client-0705312186.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-0ce12003-7f2f-4b91-bc72-9d23e2fc41f0",
-  "storageBucket": "gen-lang-client-0705312186.firebasestorage.app",
-  "messagingSenderId": "707929784634",
-  "measurementId": ""
+  "projectId": "xecuracrm",
+  "appId": "1:247428324065:web:f8c168dd7b3528cbb875a0",
+  "apiKey": "AIzaSyAYcd3wdd1aNivOaqBCrFPClwSs4QGHueQ",
+  "authDomain": "xecuracrm.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "xecuracrm.firebasestorage.app",
+  "messagingSenderId": "247428324065",
+  "measurementId": "G-42V4TH2TTW"
 }
